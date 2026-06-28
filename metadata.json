@@ -1,0 +1,6 @@
+{
+  "name": "BCA Student Management System Project Hub",
+  "description": "A complete BCA final-year project companion containing a fully functional React Student Management System, complete 26-chapter academic project report, copyable PHP & MySQL source code, system diagrams, and an interactive Viva Voce preparation tool.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
