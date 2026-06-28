@@ -1421,7 +1421,7 @@ export default function App() {
               </button>
             </div>
             <div className="flex-1 overflow-hidden bg-slate-900">
-              <AIVoiceChatbot onAwardPoints={handleAwardPoints} />
+              <AIVoiceChatbot onAwardPoints={handleAwardPoints} isCompact={true} />
             </div>
           </div>
         )}

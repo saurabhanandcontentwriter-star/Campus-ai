@@ -22,6 +22,7 @@ import {
 
 interface AIVoiceChatbotProps {
   onAwardPoints?: (points: number, reason: string) => void;
+  isCompact?: boolean;
 }
 
 interface Message {
@@ -35,7 +36,7 @@ type ChatTheme = 'cyberpunk' | 'matrix' | 'solar' | 'gold';
 type AvatarStyle = 'visor' | 'headset' | 'glasses';
 type OutfitStyle = 'hoodie' | 'techwear' | 'blazer';
 
-export default function AIVoiceChatbot({ onAwardPoints }: AIVoiceChatbotProps) {
+export default function AIVoiceChatbot({ onAwardPoints, isCompact = false }: AIVoiceChatbotProps) {
   // Chat States
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -322,6 +323,213 @@ Question/Input: ${rawText}`,
 
   // Helper arrays for soundwaves
   const dummyWaveBars = Array.from({ length: 14 });
+
+  if (isCompact) {
+    return (
+      <div className="flex flex-col h-full w-full bg-slate-950 text-slate-200 select-none overflow-hidden">
+        {/* Compact Head / Avatar Status Bar */}
+        <div className="bg-slate-900 border-b border-slate-800 px-3.5 py-2 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="relative w-8 h-8 rounded-full border border-slate-800 bg-slate-950 flex items-center justify-center overflow-hidden">
+              <div 
+                className="absolute inset-0 blur-md opacity-35" 
+                style={{ backgroundColor: currentTheme.avatarGlow }} 
+              />
+              {/* Mini SVG head representation of Leo */}
+              <svg viewBox="50 20 100 100" className="w-7 h-7 relative z-10">
+                <defs>
+                  <linearGradient id="skinGradCompact" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#ffdbb5" />
+                    <stop offset="100%" stopColor="#e0a96d" />
+                  </linearGradient>
+                  <linearGradient id="hairGradCompact" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#312e81" />
+                    <stop offset="100%" stopColor="#1e1b4b" />
+                  </linearGradient>
+                </defs>
+                <rect x="88" y="90" width="24" height="30" rx="3" fill="url(#skinGradCompact)" />
+                <rect x="70" y="45" width="60" height="60" rx="22" fill="url(#skinGradCompact)" />
+                <path d="M66,55 C64,30 85,25 100,25 C115,25 136,30 134,55 C132,65 126,52 120,48 C114,44 100,48 95,45 C90,42 80,48 74,52 C68,56 68,58 66,55 Z" fill="url(#hairGradCompact)" />
+                {avatarState === 'thinking' ? (
+                  <g>
+                    <path d="M78,66 Q83,62 88,66" stroke="#1e293b" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                    <path d="M112,66 Q117,62 122,66" stroke="#1e293b" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                  </g>
+                ) : (
+                  <g>
+                    <ellipse cx="83" cy="67" rx="4.5" ry="4.5" fill="#111827" />
+                    <ellipse cx="117" cy="67" rx="4.5" ry="4.5" fill="#111827" />
+                  </g>
+                )}
+                {avatarState === 'speaking' ? (
+                  <ellipse cx="100" cy="87" rx="6" ry="4" fill="#7f1d1d" />
+                ) : (
+                  <path d="M94,84 Q100,90 106,84" stroke="#1e293b" strokeWidth="2" fill="none" strokeLinecap="round" />
+                )}
+              </svg>
+              {/* LED Status light */}
+              <span className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-slate-900 ${
+                avatarState === 'speaking' ? 'bg-emerald-500' :
+                avatarState === 'thinking' ? 'bg-amber-500 animate-pulse' :
+                avatarState === 'listening' ? 'bg-rose-500' :
+                'bg-slate-400'
+              }`} />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-white leading-tight">Leo Assistant</div>
+              <div className="text-[9px] text-slate-500 font-mono tracking-wider uppercase">
+                {avatarState === 'idle' && 'Standby'}
+                {avatarState === 'thinking' && 'Thinking...'}
+                {avatarState === 'speaking' && 'Speaking'}
+                {avatarState === 'listening' && 'Listening...'}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={toggleListening}
+              className={`p-1 rounded-md border transition-all cursor-pointer ${
+                isListening 
+                  ? 'bg-rose-600/20 border-rose-500 text-rose-400' 
+                  : 'bg-slate-800/40 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-250'
+              }`}
+              title={isListening ? "Stop listening" : "Start speaking"}
+            >
+              {isListening ? <MicOff className="w-3 h-3 animate-pulse" /> : <Mic className="w-3 h-3" />}
+            </button>
+            <button
+              onClick={toggleMute}
+              className={`p-1 rounded-md border transition-all cursor-pointer ${
+                isMuted 
+                  ? 'bg-slate-800/40 border-slate-800 text-rose-400' 
+                  : 'bg-slate-800/40 border-slate-800 hover:border-slate-700 text-slate-400 hover:text-emerald-400'
+              }`}
+              title={isMuted ? "Unmute" : "Mute"}
+            >
+              {isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3 text-emerald-500" />}
+            </button>
+            <button 
+              onClick={() => setShowSettings(!showSettings)}
+              className="p-1 bg-slate-800/40 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 rounded-md transition-all cursor-pointer"
+              title="Settings"
+            >
+              <Settings className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+
+        {/* Message Logs */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-3 font-sans text-[11px] relative">
+          {messages.map((msg) => (
+            <div 
+              key={msg.id}
+              className={`flex flex-col max-w-[85%] ${
+                msg.role === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'
+              }`}
+            >
+              <div className={`p-2 rounded-xl border ${
+                msg.role === 'user' ? currentTheme.chatUser : currentTheme.chatBot
+              }`}>
+                {msg.text}
+              </div>
+              <span className="text-[8px] text-slate-500 mt-0.5 px-1 font-mono">
+                {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          ))}
+
+          {isLoading && (
+            <div className="flex flex-col items-start max-w-[85%]">
+              <div className="bg-slate-900 border border-slate-850 p-2 rounded-xl flex items-center gap-1.5 text-slate-400 font-mono text-[10px]">
+                <RefreshCw className="w-3 h-3 animate-spin text-cyan-400" />
+                <span>Leo thinking...</span>
+              </div>
+            </div>
+          )}
+
+          <div ref={messageEndRef} />
+
+          {/* Quick theme customization inline in logs when settings is active */}
+          <AnimatePresence>
+            {showSettings && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className="absolute inset-x-2 bottom-2 bg-slate-950 border border-slate-850 p-3 rounded-xl z-20 space-y-2.5 shadow-2xl"
+              >
+                <div className="flex items-center justify-between border-b border-slate-850 pb-1.5">
+                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Customizer Panel</span>
+                  <button 
+                    onClick={() => setShowSettings(false)}
+                    className="text-[9px] font-bold text-cyan-400 hover:text-cyan-300"
+                  >
+                    Done
+                  </button>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[9px] font-bold text-slate-500 uppercase">Hologram Theme</span>
+                  <div className="grid grid-cols-4 gap-1">
+                    {(['cyberpunk', 'matrix', 'solar', 'gold'] as ChatTheme[]).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setChatbotTheme(t)}
+                        className={`py-1 rounded text-[9px] font-bold uppercase border transition-all cursor-pointer ${
+                          chatbotTheme === t ? 'bg-slate-800 text-white border-slate-600' : 'bg-slate-900 text-slate-400 border-transparent'
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Quick Suggestion Chips */}
+        <div className="px-3 py-1.5 bg-slate-950 border-t border-slate-900 flex gap-1.5 overflow-x-auto shrink-0 scrollbar-none select-none">
+          <button 
+            onClick={() => handleSendMessage("Explain OOP in simple terms")}
+            className="px-2 py-0.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-400 hover:text-slate-200 rounded text-[9px] whitespace-nowrap cursor-pointer"
+          >
+            Explain OOP
+          </button>
+          <button 
+            onClick={() => handleSendMessage("What are key computer network viva questions?")}
+            className="px-2 py-0.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-400 hover:text-slate-200 rounded text-[9px] whitespace-nowrap cursor-pointer"
+          >
+            Viva Questions
+          </button>
+        </div>
+
+        {/* Console Input Bar */}
+        <form 
+          onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}
+          className="p-2 bg-slate-950 border-t border-slate-900 flex gap-1.5 shrink-0"
+        >
+          <input
+            type="text"
+            placeholder="Ask Leo anything..."
+            className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-slate-700 font-mono"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !inputText.trim()}
+            className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+              inputText.trim() ? currentTheme.primaryBtn : 'bg-slate-900 text-slate-600 border border-slate-800'
+            }`}
+          >
+            <Send className="w-3.5 h-3.5" />
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 bg-gradient-to-br ${currentTheme.bgGrad} p-6 rounded-2xl border border-slate-800 transition-all duration-500`}>
