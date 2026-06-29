@@ -17,7 +17,9 @@ import {
   Trash2, 
   Wifi, 
   UserCheck,
-  RefreshCw
+  RefreshCw,
+  Timer,
+  RotateCcw
 } from 'lucide-react';
 
 interface AttendanceManagerProps {
@@ -52,6 +54,52 @@ export default function AttendanceManager({
   const [isBeepEnabled, setIsBeepEnabled] = useState(true);
   const [autoSaveOnScan, setAutoSaveOnScan] = useState(true);
   const [scanHistory, setScanHistory] = useState<{ id: string; student: Student; time: string; subjectName: string }[]>([]);
+
+  // Dynamic QR session expiration countdown timer states
+  const [qrSessionDuration, setQrSessionDuration] = useState<number>(120); // default 120 seconds (2 mins)
+  const [qrSessionTimeLeft, setQrSessionTimeLeft] = useState<number>(120);
+  const [isSessionExpired, setIsSessionExpired] = useState<boolean>(false);
+
+  // Countdown mechanism for the active QR scan session
+  React.useEffect(() => {
+    if (activeMode !== 'qr') return;
+    if (qrSessionTimeLeft <= 0) {
+      setIsSessionExpired(true);
+      return;
+    }
+
+    setIsSessionExpired(false);
+
+    const intervalId = setInterval(() => {
+      setQrSessionTimeLeft((prev) => {
+        if (prev <= 1) {
+          setIsSessionExpired(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [activeMode, qrSessionTimeLeft]);
+
+  // Helper to regenerate/renew the dynamic QR session
+  const handleResetQrSession = (duration: number = qrSessionDuration) => {
+    setQrSessionDuration(duration);
+    setQrSessionTimeLeft(duration);
+    setIsSessionExpired(false);
+    if (scannerState === 'error') {
+      setScannerState('idle');
+    }
+  };
+
+  // Reset QR session when subject or active mode changes
+  React.useEffect(() => {
+    if (activeMode === 'qr') {
+      setQrSessionTimeLeft(qrSessionDuration);
+      setIsSessionExpired(false);
+    }
+  }, [selectedSubject, activeMode]);
 
   // Temporary grid state before saving
   const [markedRecords, setMarkedRecords] = useState<{ [studentId: string]: 'Present' | 'Absent' }>({});
@@ -188,6 +236,10 @@ export default function AttendanceManager({
 
   // Simulate scanning a student's QR Code ID badge
   const handleSimulateScan = () => {
+    if (isSessionExpired) {
+      alert('The current QR session has expired! Please regenerate or extend the session first.');
+      return;
+    }
     if (!selectedSubject) {
       alert('Please configure/select a valid subject first.');
       return;
@@ -657,25 +709,79 @@ export default function AttendanceManager({
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.06)_0%,transparent_75%)] pointer-events-none" />
 
             {/* Title Block */}
-            <div className="flex items-center justify-between border-b border-slate-900 pb-3 z-10 relative">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-900 pb-3 z-10 relative gap-2">
               <div className="flex items-center gap-2">
                 <Camera className="w-4 h-4 text-emerald-400 animate-pulse" />
                 <span className="font-mono text-xs font-bold text-slate-200 tracking-wider">QR/NFC READER TERMINAL v2.4</span>
               </div>
-              <div className="flex items-center gap-2 font-mono text-[9px] text-emerald-400 bg-emerald-950/40 border border-emerald-900 px-2 py-0.5 rounded">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                <span>ONLINE LINKED</span>
+              
+              <div className="flex items-center gap-2">
+                {/* Timer Countdown Display */}
+                <div className={`flex items-center gap-1.5 font-mono text-[10px] px-2 py-0.5 rounded border ${
+                  isSessionExpired 
+                    ? 'text-red-400 bg-red-950/30 border-red-900/50' 
+                    : qrSessionTimeLeft < 30
+                    ? 'text-amber-400 bg-amber-950/30 border-amber-900/50 animate-pulse'
+                    : 'text-emerald-400 bg-emerald-950/30 border-emerald-900/50'
+                }`}>
+                  <Timer className="w-3.5 h-3.5" />
+                  <span className="font-bold">
+                    {isSessionExpired ? 'EXPIRED' : `${Math.floor(qrSessionTimeLeft / 60).toString().padStart(2, '0')}:${(qrSessionTimeLeft % 60).toString().padStart(2, '0')}`}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 font-mono text-[9px] text-emerald-400 bg-emerald-950/40 border border-emerald-900 px-2 py-0.5 rounded">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isSessionExpired ? 'bg-red-500' : 'bg-emerald-400 animate-ping'}`} />
+                  <span>{isSessionExpired ? 'SECURE EXPIRED' : 'ONLINE LINKED'}</span>
+                </div>
               </div>
             </div>
 
             {/* SCANNING CANVAS VIEWPORT */}
             <div className="flex-1 my-5 rounded-xl border border-slate-900 bg-slate-900/60 relative overflow-hidden flex flex-col items-center justify-center min-h-[250px]">
               
+              {/* Dynamic countdown progress bar at the top of the viewport */}
+              {!isSessionExpired && (
+                <div className="absolute top-0 left-0 right-0 h-1 bg-slate-950/60 z-20">
+                  <div 
+                    className={`h-full transition-all duration-1000 ${
+                      qrSessionTimeLeft < 30 ? 'bg-amber-500 shadow-[0_0_8px_#f59e0b]' : 'bg-emerald-500 shadow-[0_0_8px_#10b981]'
+                    }`}
+                    style={{ width: `${(qrSessionTimeLeft / qrSessionDuration) * 100}%` }}
+                  />
+                </div>
+              )}
+
+              {/* Expired State Overlay */}
+              {isSessionExpired ? (
+                <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center space-y-4 z-30 animate-fade-in">
+                  <div className="w-14 h-14 rounded-full bg-red-500/10 border-2 border-red-500/40 flex items-center justify-center text-red-500 shadow-xl">
+                    <AlertCircle className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-1 max-w-xs">
+                    <span className="text-[9px] font-bold bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full uppercase tracking-wider font-mono">
+                      TOKEN EXPIRED
+                    </span>
+                    <h5 className="text-sm font-extrabold text-white mt-1.5">QR Security Token Expired</h5>
+                    <p className="text-[11px] text-slate-400 font-medium">
+                      The dynamic QR session key has expired to protect roll attendance integrity. Renew to allow check-ins.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleResetQrSession()}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-mono font-bold text-xs py-1.5 px-3 rounded-lg flex items-center gap-1 transition duration-200 cursor-pointer shadow-md shadow-emerald-900/20"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    REGENERATE SESSION
+                  </button>
+                </div>
+              ) : null}
+
               {/* Vertical Glowing Laser Scanline */}
-              {scannerState === 'scanning' && (
+              {scannerState === 'scanning' && !isSessionExpired && (
                 <div className="absolute left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent shadow-[0_0_12px_rgba(34,211,238,0.8)] z-20 animate-scan-line" />
               )}
-              {scannerState === 'idle' && (
+              {scannerState === 'idle' && !isSessionExpired && (
                 <div className="absolute left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-emerald-500 to-transparent shadow-[0_0_6px_rgba(16,185,129,0.5)] z-20 animate-scan-line" />
               )}
 
@@ -730,10 +836,10 @@ export default function AttendanceManager({
 
             {/* BOTTOM PANEL CONTROLS */}
             <div className="border-t border-slate-900 pt-4 space-y-4 z-10 relative">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* Audio configuration */}
-                <div className="flex items-center justify-between bg-slate-900/40 px-3 py-2 rounded-lg border border-slate-900">
-                  <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Sound Feedback</span>
+                <div className="flex items-center justify-between bg-slate-900/40 px-3 py-1.5 rounded-lg border border-slate-900">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Sound FX</span>
                   <button
                     onClick={() => setIsBeepEnabled(!isBeepEnabled)}
                     className={`p-1 rounded cursor-pointer transition ${
@@ -745,11 +851,11 @@ export default function AttendanceManager({
                 </div>
 
                 {/* DB sync configuration */}
-                <div className="flex items-center justify-between bg-slate-900/40 px-3 py-2 rounded-lg border border-slate-900">
-                  <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Direct Ledger Sync</span>
+                <div className="flex items-center justify-between bg-slate-900/40 px-3 py-1.5 rounded-lg border border-slate-900">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Direct Sync</span>
                   <button
                     onClick={() => setAutoSaveOnScan(!autoSaveOnScan)}
-                    className={`text-[9px] font-bold px-2 py-1 rounded transition-colors uppercase cursor-pointer border ${
+                    className={`text-[9px] font-bold px-2 py-0.5 rounded transition-colors uppercase cursor-pointer border ${
                       autoSaveOnScan 
                         ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' 
                         : 'bg-slate-900 text-slate-500 border-transparent'
@@ -757,6 +863,30 @@ export default function AttendanceManager({
                   >
                     {autoSaveOnScan ? 'ENABLED' : 'MANUAL'}
                   </button>
+                </div>
+
+                {/* Session configuration & refresh */}
+                <div className="flex items-center justify-between bg-slate-900/40 px-3 py-1.5 rounded-lg border border-slate-900">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">Timer</span>
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={qrSessionDuration}
+                      onChange={(e) => handleResetQrSession(Number(e.target.value))}
+                      className="bg-slate-950 border border-slate-800 rounded py-0.5 px-1 text-[10px] text-emerald-400 focus:outline-none"
+                    >
+                      <option value={60}>1m</option>
+                      <option value={120}>2m</option>
+                      <option value={300}>5m</option>
+                      <option value={600}>10m</option>
+                    </select>
+                    <button
+                      onClick={() => handleResetQrSession()}
+                      className="p-1 rounded text-slate-400 hover:text-emerald-400 transition cursor-pointer"
+                      title="Reset Session timer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
