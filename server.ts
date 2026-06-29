@@ -12,16 +12,24 @@ async function startServer() {
 
   const PORT = 3000;
 
-  // Initialize Gemini client (Only server-side)
-  // Set User-Agent as required by the system skill
-  const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      }
+  // Lazy-loaded Gemini client helper
+  let aiClient: GoogleGenAI | null = null;
+  function getGeminiClient(): GoogleGenAI {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured in the server environment. Please configure it in Settings > Secrets.");
     }
-  });
+    if (!aiClient) {
+      aiClient = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+    }
+    return aiClient;
+  }
 
   // AI endpoint
   app.post("/api/ai", async (req, res) => {
@@ -32,11 +40,12 @@ async function startServer() {
         return res.status(400).json({ error: "Prompt is required." });
       }
 
-      // Check for Gemini API key
-      if (!process.env.GEMINI_API_KEY) {
-        return res.status(500).json({ 
-          error: "GEMINI_API_KEY is not configured in the server environment. Please configure it in Settings > Secrets." 
-        });
+      // Initialize client lazily to avoid startup crashes
+      let ai;
+      try {
+        ai = getGeminiClient();
+      } catch (keyError: any) {
+        return res.status(500).json({ error: keyError.message });
       }
 
       const response = await ai.models.generateContent({

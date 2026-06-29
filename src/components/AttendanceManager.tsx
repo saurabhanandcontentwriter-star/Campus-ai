@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Student, Course, Subject, Attendance } from '../types';
 import { 
   Calendar, 
+  Download,
   CheckCircle2, 
   XCircle, 
   Users, 
@@ -257,6 +258,70 @@ export default function AttendanceManager({
     };
   };
 
+  // Export current active attendance session records into a standard CSV format
+  const handleExportCSV = () => {
+    if (!selectedSubject) {
+      alert('Please configure/select a valid subject first.');
+      return;
+    }
+    if (targetStudents.length === 0) {
+      alert('No students found in this course/semester to export.');
+      return;
+    }
+
+    const courseObj = courses.find((c) => c.id === selectedCourse);
+    const subjectObj = subjects.find((s) => s.id === selectedSubject);
+    
+    const courseName = courseObj ? courseObj.name : 'Unknown Course';
+    const courseCode = courseObj ? courseObj.code : '';
+    const subjectName = subjectObj ? subjectObj.name : 'Unknown Subject';
+    const subjectCode = subjectObj ? subjectObj.code : '';
+
+    // CSV columns configuration
+    const headers = [
+      'Roll No',
+      'Student Name',
+      'Course Code',
+      'Course Name',
+      'Semester',
+      'Subject Code',
+      'Subject Name',
+      'Session Date',
+      'Attendance Status'
+    ];
+    
+    const rows = targetStudents.map((stud) => {
+      const status = markedRecords[stud.id] || 'Present';
+      return [
+        stud.rollNo,
+        stud.name,
+        courseCode,
+        courseName,
+        selectedSemester,
+        subjectCode,
+        subjectName,
+        selectedDate,
+        status
+      ];
+    });
+
+    // Safely generate CSV formatting handling quote shielding
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) => row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    // Trigger seamless file download in the browser
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Attendance_Backup_${courseCode || 'Course'}_${subjectCode || 'Subject'}_${selectedDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Render highly-polished simulated QR Code SVG
   const renderSimulatedQRCode = (rollNo: string) => {
     return (
@@ -416,33 +481,46 @@ export default function AttendanceManager({
       )}
 
       {/* Tab Navigation Switcher */}
-      <div className="flex border-b border-slate-200 select-none bg-white p-1 rounded-xl shadow-xs gap-1">
-        <button
-          onClick={() => setActiveMode('manual')}
-          className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer border ${
-            activeMode === 'manual'
-              ? 'bg-blue-600/10 text-blue-600 border-blue-600/20 shadow-xs'
-              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800 border-transparent'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          Roster Register Grid
-        </button>
-        <button
-          onClick={() => setActiveMode('qr')}
-          className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer border relative ${
-            activeMode === 'qr'
-              ? 'bg-emerald-600/10 text-emerald-600 border-emerald-600/20 shadow-xs'
-              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800 border-transparent'
-          }`}
-        >
-          <QrCode className="w-4 h-4 text-emerald-500" />
-          Sleek QR Scan Terminal
-          <span className="absolute -top-1 -right-1 flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-        </button>
+      <div className="flex flex-col sm:flex-row border-b border-slate-200 select-none bg-white p-1 rounded-xl shadow-xs gap-1 justify-between items-stretch sm:items-center">
+        <div className="flex gap-1 flex-1 sm:flex-initial">
+          <button
+            onClick={() => setActiveMode('manual')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer border ${
+              activeMode === 'manual'
+                ? 'bg-blue-600/10 text-blue-600 border-blue-600/20 shadow-xs'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800 border-transparent'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            Roster Register Grid
+          </button>
+          <button
+            onClick={() => setActiveMode('qr')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer border relative ${
+              activeMode === 'qr'
+                ? 'bg-emerald-600/10 text-emerald-600 border-emerald-600/20 shadow-xs'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800 border-transparent'
+            }`}
+          >
+            <QrCode className="w-4 h-4 text-emerald-500" />
+            Sleek QR Scan Terminal
+            <span className="absolute -top-1 -right-1 flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+          </button>
+        </div>
+
+        {targetStudents.length > 0 && selectedSubject && (
+          <button
+            onClick={handleExportCSV}
+            className="mt-1.5 sm:mt-0 px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+            title="Export session records as CSV backup"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span>Export Backup (CSV)</span>
+          </button>
+        )}
       </div>
 
       {/* Mode Render Router */}
@@ -537,7 +615,16 @@ export default function AttendanceManager({
                   );
                 })}
 
-                <div className="p-4 bg-slate-50 flex items-center justify-end">
+                <div className="p-4 bg-slate-50 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={handleExportCSV}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-lg shadow-sm transition cursor-pointer flex items-center gap-1.5"
+                    title="Export session records as CSV backup"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export CSV</span>
+                  </button>
                   <button
                     type="button"
                     onClick={handleSave}
