@@ -44,6 +44,7 @@ export default function AttendanceManager({
 
   // Tab View Mode: 'manual' (Grid) vs 'qr' (QR Scanning Hub)
   const [activeMode, setActiveMode] = useState<'manual' | 'qr'>('manual');
+  const [showLogsToggle, setShowLogsToggle] = useState<boolean>(false);
 
   // QR Scanning States
   const [selectedScannerStudent, setSelectedScannerStudent] = useState<string>('');
@@ -232,6 +233,43 @@ export default function AttendanceManager({
     } catch (e) {
       console.warn('Audio Context beep could not be initialized:', e);
     }
+  };
+
+  // Click handler for interactive history log entries
+  const handleHistoryLogClick = (item: { student: Student; subjectName: string }) => {
+    // Select student card so admin can inspect their details/RFID profile
+    setSelectedScannerStudent(item.student.id);
+
+    // Toggle attendance mark status (Present <-> Absent)
+    setMarkedRecords((prev) => {
+      const currentStatus = prev[item.student.id] || 'Present';
+      const newStatus = currentStatus === 'Present' ? 'Absent' : 'Present';
+      const updated = { ...prev, [item.student.id]: newStatus };
+
+      // Commit update immediately to ledger if auto-sync is active
+      if (autoSaveOnScan) {
+        const recordsToSave = targetStudents.map((stud) => ({
+          studentId: stud.id,
+          subjectId: selectedSubject,
+          date: selectedDate,
+          status: stud.id === item.student.id ? newStatus : (updated[stud.id] || 'Present'),
+        }));
+        onSaveAttendance(recordsToSave);
+      }
+
+      // Display immediate visual confirmation (Success toast)
+      setScannedStudent(item.student);
+      setShowToast(true);
+      if (toastTimer) clearTimeout(toastTimer);
+      const timer = setTimeout(() => {
+        setShowToast(false);
+      }, 3500);
+      setToastTimer(timer);
+
+      return updated;
+    });
+
+    playBeep();
   };
 
   // Simulate scanning a student's QR Code ID badge
@@ -563,17 +601,135 @@ export default function AttendanceManager({
           </button>
         </div>
 
-        {targetStudents.length > 0 && selectedSubject && (
+        <div className="flex flex-wrap gap-2 items-center mt-1.5 sm:mt-0 w-full sm:w-auto">
           <button
-            onClick={handleExportCSV}
-            className="mt-1.5 sm:mt-0 px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
-            title="Export session records as CSV backup"
+            onClick={() => setShowLogsToggle(!showLogsToggle)}
+            className={`flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all border cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs ${
+              showLogsToggle
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900'
+            }`}
+            title="Toggle recent scan logs view"
           >
-            <Download className="w-3.5 h-3.5 text-slate-500" />
-            <span>Export Backup (CSV)</span>
+            <History className="w-3.5 h-3.5" />
+            <span>Scan Logs {scanHistory.length > 0 && `(${Math.min(scanHistory.length, 10)})`}</span>
           </button>
-        )}
+
+          {targetStudents.length > 0 && selectedSubject && (
+            <button
+              onClick={handleExportCSV}
+              className="flex-1 sm:flex-initial px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+              title="Export session records as CSV backup"
+            >
+              <Download className="w-3.5 h-3.5 text-slate-500" />
+              <span>Export Backup (CSV)</span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* SECONDARY TOGGLEABLE SCAN LOGS VIEW */}
+      {showLogsToggle && (
+        <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4 animate-fade-in" id="secondary_scan_logs_panel">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-blue-600" />
+              <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                Recent Auto-Scans Feed (Last 10 Logs)
+              </span>
+              <span className="text-[10px] bg-blue-100/80 text-blue-800 font-mono font-bold px-2 py-0.5 rounded-full uppercase">
+                Interactive Admin Control
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {scanHistory.length > 0 && (
+                <button
+                  onClick={() => setScanHistory([])}
+                  className="text-[10px] text-red-500 hover:text-red-600 font-extrabold flex items-center gap-1 cursor-pointer bg-white px-2 py-1 rounded-lg border border-slate-200 hover:border-slate-300 transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Clear History
+                </button>
+              )}
+              <button
+                onClick={() => setShowLogsToggle(false)}
+                className="text-xs text-slate-500 hover:text-slate-800 font-bold px-2 py-1 cursor-pointer hover:bg-slate-200/60 rounded-lg transition"
+              >
+                ✕ Close
+              </button>
+            </div>
+          </div>
+
+          <div className="text-[11px] text-slate-500 pb-0.5 font-medium leading-relaxed">
+            💡 <span className="font-extrabold text-slate-700">Immediate Action Guide:</span> Click any card below to instantly toggle that student's status between <span className="text-emerald-600 font-extrabold">Present ⇆ Absent</span> and auto-save updates to the roll database.
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
+            {scanHistory.length > 0 ? (
+              scanHistory.slice(0, 10).map((item) => {
+                const currentStatus = markedRecords[item.student.id] || 'Present';
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleHistoryLogClick(item)}
+                    className={`p-3.5 rounded-xl border transition-all text-left flex flex-col justify-between h-28 relative overflow-hidden group select-none cursor-pointer hover:scale-[1.02] active:scale-95 duration-150 ${
+                      currentStatus === 'Present'
+                        ? 'bg-white hover:bg-emerald-50/10 border-slate-200 hover:border-emerald-300 shadow-2xs hover:shadow-xs'
+                        : 'bg-red-50/20 hover:bg-red-50/40 border-red-100 hover:border-red-200 shadow-2xs'
+                    }`}
+                    title={`Click to toggle ${item.student.name} attendance status`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 border transition-all ${
+                        currentStatus === 'Present'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                          : 'bg-red-100 text-red-700 border-red-200'
+                      }`}>
+                        {item.student.name.charAt(0)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-slate-800 text-xs truncate group-hover:text-blue-600 transition-colors">
+                          {item.student.name}
+                        </p>
+                        <p className="text-[9px] text-slate-400 font-semibold truncate uppercase">
+                          {item.student.rollNo}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-end mt-2">
+                      <span className="text-[8.5px] font-mono text-slate-400 font-bold">
+                        ⏱️ {item.time}
+                      </span>
+                      <span className={`text-[9px] px-2 py-0.5 rounded-md font-extrabold uppercase tracking-wider border transition-all ${
+                        currentStatus === 'Present'
+                          ? 'bg-emerald-50/80 text-emerald-700 border-emerald-100/50'
+                          : 'bg-red-50/80 text-red-700 border-red-100/50'
+                      }`}>
+                        {currentStatus}
+                      </span>
+                    </div>
+
+                    {/* Quick indicator overlay on hover */}
+                    <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/5 rounded-full p-1">
+                      <span className="text-[8px] font-black text-slate-500 px-1 font-mono">
+                        Toggle ⇆
+                      </span>
+                    </div>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="col-span-full py-12 text-center text-slate-400 text-xs flex flex-col items-center justify-center space-y-2 bg-white rounded-xl border border-dashed border-slate-200 p-6">
+                <Wifi className="w-8 h-8 text-slate-300 animate-pulse" />
+                <p className="font-bold text-slate-700">No dynamic check-ins recorded yet</p>
+                <p className="text-[10px] text-slate-400 max-w-xs leading-relaxed">
+                  Head over to the <span className="font-bold text-emerald-600">Sleek QR Scan Terminal</span>, trigger code simulation check-ins, and their real-time timestamps will appear here for interactive logs management.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Mode Render Router */}
       {activeMode === 'manual' ? (
@@ -1019,29 +1175,50 @@ export default function AttendanceManager({
 
               <div className="flex-1 overflow-y-auto max-h-48 space-y-2 pr-1 scrollbar-thin">
                 {scanHistory.length > 0 ? (
-                  scanHistory.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-3 animate-fade-in"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-7 h-7 rounded-full bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0 border border-emerald-100">
-                          {item.student.name.charAt(0)}
+                  scanHistory.slice(0, 10).map((item) => {
+                    const currentStatus = markedRecords[item.student.id] || 'Present';
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleHistoryLogClick(item)}
+                        className={`w-full p-2.5 border rounded-xl flex items-center justify-between gap-3 animate-fade-in text-left cursor-pointer hover:scale-[1.01] active:scale-95 duration-100 group ${
+                          currentStatus === 'Present'
+                            ? 'bg-slate-50 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/10'
+                            : 'bg-red-50/10 border-red-100 hover:border-red-200 hover:bg-red-50/20'
+                        }`}
+                        title="Click to toggle attendance status"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 border ${
+                            currentStatus === 'Present'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                              : 'bg-red-100 text-red-700 border-red-200'
+                          }`}>
+                            {item.student.name.charAt(0)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-800 text-xs truncate group-hover:text-blue-600 transition-colors">
+                              {item.student.name}
+                            </p>
+                            <p className="text-[9px] text-slate-400 font-semibold truncate uppercase">
+                              {item.subjectName}
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-bold text-slate-800 text-xs truncate">{item.student.name}</p>
-                          <p className="text-[9px] text-slate-400 font-semibold truncate uppercase">{item.subjectName}</p>
-                        </div>
-                      </div>
 
-                      <div className="text-right shrink-0">
-                        <p className="font-mono font-bold text-[10px] text-slate-600">{item.time}</p>
-                        <span className="text-[8px] bg-green-50 text-green-700 border border-green-100 px-1 rounded uppercase font-extrabold tracking-wide">
-                          PRESENT
-                        </span>
-                      </div>
-                    </div>
-                  ))
+                        <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                          <p className="font-mono font-bold text-[10px] text-slate-500">{item.time}</p>
+                          <span className={`text-[8px] border px-1 rounded uppercase font-extrabold tracking-wide ${
+                            currentStatus === 'Present'
+                              ? 'bg-green-50 text-green-700 border-green-100'
+                              : 'bg-red-50 text-red-700 border-red-100'
+                          }`}>
+                            {currentStatus}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })
                 ) : (
                   <div className="py-8 text-center text-slate-400 text-xs flex flex-col items-center justify-center space-y-2">
                     <Wifi className="w-7 h-7 text-slate-300 animate-pulse" />
