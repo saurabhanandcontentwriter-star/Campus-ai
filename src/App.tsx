@@ -1077,7 +1077,7 @@ export default function App() {
                             <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
                             <input
                               type="text"
-                              placeholder="Enter Roll No (e.g. BCA2026-102)"
+                              placeholder="Enter Roll No"
                               className="w-full border border-slate-200 rounded-lg py-2 pl-10 pr-3 text-xs focus:outline-blue-500 font-mono"
                               value={dashSearchRoll}
                               onChange={(e) => setDashSearchRoll(e.target.value)}
