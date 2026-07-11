@@ -26,6 +26,17 @@ import TeacherProfileView from './components/TeacherProfileView';
 import AssignmentManager from './components/AssignmentManager';
 
 import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
+
+import {
   GraduationCap,
   LayoutDashboard,
   Users,
@@ -42,6 +53,9 @@ import {
   ShieldAlert,
   Menu,
   X,
+  Plus,
+  RotateCcw,
+  Trash2,
   BrainCircuit,
   Briefcase,
   Layers,
@@ -156,6 +170,16 @@ const INITIAL_ATTENDANCE: Attendance[] = [
   { id: 'a6', studentId: 'st3', subjectId: 's1', date: '2026-06-26', status: 'Present' },
 ];
 
+// Baseline dataset for Departmental Growth enrollment trends
+const ENROLLMENT_TRENDS_DATA = [
+  { semester: 'Spring 2024', BCA: 45, 'BSc-CS': 30, MCA: 20 },
+  { semester: 'Fall 2024', BCA: 60, 'BSc-CS': 40, MCA: 28 },
+  { semester: 'Spring 2025', BCA: 55, 'BSc-CS': 35, MCA: 24 },
+  { semester: 'Fall 2025', BCA: 75, 'BSc-CS': 48, MCA: 35 },
+  { semester: 'Spring 2026', BCA: 70, 'BSc-CS': 42, MCA: 30 },
+  { semester: 'Fall 2026', BCA: 90, 'BSc-CS': 55, MCA: 42 },
+];
+
 export default function App() {
   // Navigation
   const [activeTab, setActiveTab] = useState<'portal' | 'thesis' | 'viva'>('portal');
@@ -172,6 +196,52 @@ export default function App() {
 
   // Floating Chatbot State
   const [isFloatingChatbotOpen, setIsFloatingChatbotOpen] = useState(false);
+
+  // Departmental Growth Recharts enrollment trend states
+  const [chartLinesVisibility, setChartLinesVisibility] = useState<{ BCA: boolean; 'BSc-CS': boolean; MCA: boolean }>({
+    BCA: true,
+    'BSc-CS': true,
+    MCA: true,
+  });
+  const [enrollmentTrends, setEnrollmentTrends] = useState<{ semester: string; BCA: number; 'BSc-CS': number; MCA: number }[]>(() => {
+    const saved = localStorage.getItem('sms_enrollment_trends');
+    return saved ? JSON.parse(saved) : ENROLLMENT_TRENDS_DATA;
+  });
+  const [showAddEnrollmentForm, setShowAddEnrollmentForm] = useState(false);
+  const [newEnrollmentSem, setNewEnrollmentSem] = useState('');
+  const [newEnrollmentBca, setNewEnrollmentBca] = useState(60);
+  const [newEnrollmentBsc, setNewEnrollmentBsc] = useState(40);
+  const [newEnrollmentMca, setNewEnrollmentMca] = useState(30);
+
+  const handleAddEnrollmentEntry = () => {
+    if (!newEnrollmentSem.trim()) {
+      alert('Please enter a valid semester name (e.g. Spring 2027)');
+      return;
+    }
+    const newEntry = {
+      semester: newEnrollmentSem.trim(),
+      BCA: Number(newEnrollmentBca),
+      'BSc-CS': Number(newEnrollmentBsc),
+      MCA: Number(newEnrollmentMca),
+    };
+    const updatedTrends = [...enrollmentTrends, newEntry];
+    setEnrollmentTrends(updatedTrends);
+    localStorage.setItem('sms_enrollment_trends', JSON.stringify(updatedTrends));
+    
+    // Reset form
+    setNewEnrollmentSem('');
+    setShowAddEnrollmentForm(false);
+    
+    // Award points
+    handleAwardPoints(20, 'Added New Academic Enrollment Trend Metric');
+  };
+
+  const handleResetEnrollmentData = () => {
+    if (confirm('Are you sure you want to reset the enrollment trends data to defaults?')) {
+      setEnrollmentTrends(ENROLLMENT_TRENDS_DATA);
+      localStorage.removeItem('sms_enrollment_trends');
+    }
+  };
 
   // Live Toast for gamification point awards
   const [pointsToast, setPointsToast] = useState<{ visible: boolean; points: number; reason: string }>({
@@ -1151,6 +1221,177 @@ export default function App() {
                           </div>
                         )}
                       </div>
+
+                      {/* Departmental Growth Line Chart Card */}
+                      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <TrendingUp className="w-4 h-4 text-blue-600" />
+                              <h4 className="font-extrabold text-slate-800 text-sm">Departmental Growth</h4>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-0.5">Student enrollment trends across recent semesters.</p>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              onClick={() => setShowAddEnrollmentForm(!showAddEnrollmentForm)}
+                              className="px-2.5 py-1 text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                              title="Add custom enrollment semester trend data"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Add Entry</span>
+                            </button>
+                            {enrollmentTrends.length !== ENROLLMENT_TRENDS_DATA.length && (
+                              <button
+                                onClick={handleResetEnrollmentData}
+                                className="p-1 rounded bg-slate-100 hover:bg-red-50 text-slate-400 hover:text-red-500 transition-all cursor-pointer border border-slate-200"
+                                title="Reset enrollment trends data"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Interactive Toggle Pill Panels */}
+                        <div className="flex flex-wrap items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                          <span className="text-[9px] font-mono text-slate-400 font-bold uppercase mr-1.5">Toggle Views:</span>
+                          <button
+                            onClick={() => setChartLinesVisibility(prev => ({ ...prev, BCA: !prev.BCA }))}
+                            className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                              chartLinesVisibility.BCA
+                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                : 'bg-white text-slate-300 border-slate-200 line-through decoration-slate-400'
+                            }`}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                            <span>BCA</span>
+                          </button>
+                          <button
+                            onClick={() => setChartLinesVisibility(prev => ({ ...prev, 'BSc-CS': !prev['BSc-CS'] }))}
+                            className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                              chartLinesVisibility['BSc-CS']
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-white text-slate-300 border-slate-200 line-through decoration-slate-400'
+                            }`}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span>BSc-CS</span>
+                          </button>
+                          <button
+                            onClick={() => setChartLinesVisibility(prev => ({ ...prev, MCA: !prev.MCA }))}
+                            className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                              chartLinesVisibility.MCA
+                                ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                : 'bg-white text-slate-300 border-slate-200 line-through decoration-slate-400'
+                            }`}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                            <span>MCA</span>
+                          </button>
+                        </div>
+
+                        {/* Expandable Add Enrollment Entry Form */}
+                        {showAddEnrollmentForm && (
+                          <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-200 space-y-3 animate-fade-in">
+                            <h5 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">New Semester Data</h5>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1">Semester Name</label>
+                                <input
+                                  type="text"
+                                  placeholder="e.g. Spring 2027"
+                                  className="w-full border border-slate-200 rounded-lg py-1 px-2.5 text-xs focus:outline-blue-500 font-mono"
+                                  value={newEnrollmentSem}
+                                  onChange={(e) => setNewEnrollmentSem(e.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1">BCA Intake</label>
+                                <input
+                                  type="number"
+                                  className="w-full border border-slate-200 rounded-lg py-1 px-2.5 text-xs focus:outline-blue-500 font-mono"
+                                  value={newEnrollmentBca}
+                                  onChange={(e) => setNewEnrollmentBca(Number(e.target.value))}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1">BSc-CS Intake</label>
+                                <input
+                                  type="number"
+                                  className="w-full border border-slate-200 rounded-lg py-1 px-2.5 text-xs focus:outline-blue-500 font-mono"
+                                  value={newEnrollmentBsc}
+                                  onChange={(e) => setNewEnrollmentBsc(Number(e.target.value))}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1">MCA Intake</label>
+                                <input
+                                  type="number"
+                                  className="w-full border border-slate-200 rounded-lg py-1 px-2.5 text-xs focus:outline-blue-500 font-mono"
+                                  value={newEnrollmentMca}
+                                  onChange={(e) => setNewEnrollmentMca(Number(e.target.value))}
+                                />
+                              </div>
+                            </div>
+                            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                              <button
+                                onClick={() => setShowAddEnrollmentForm(false)}
+                                className="px-3 py-1 text-[10px] font-bold text-slate-500 hover:text-slate-700 bg-white border border-slate-200 rounded-lg cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={handleAddEnrollmentEntry}
+                                className="px-3.5 py-1 text-[10px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer"
+                              >
+                                Save Data Entry
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Recharts Render Container */}
+                        <div className="h-[280px] w-full pt-2">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={enrollmentTrends} margin={{ top: 10, right: 10, left: -20, bottom: 5 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                              <XAxis dataKey="semester" stroke="#94a3b8" fontSize={10} tickLine={false} />
+                              <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} />
+                              <Tooltip contentStyle={{ background: '#0f172a', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
+                              <Legend wrapperStyle={{ fontSize: '10px', marginTop: '8px' }} />
+                              <Line
+                                type="monotone"
+                                dataKey="BCA"
+                                stroke="#3b82f6"
+                                strokeWidth={3}
+                                dot={{ r: 4 }}
+                                activeDot={{ r: 6 }}
+                                hide={!chartLinesVisibility.BCA}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="BSc-CS"
+                                stroke="#10b981"
+                                strokeWidth={3}
+                                dot={{ r: 4 }}
+                                activeDot={{ r: 6 }}
+                                hide={!chartLinesVisibility['BSc-CS']}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="MCA"
+                                stroke="#8b5cf6"
+                                strokeWidth={3}
+                                dot={{ r: 4 }}
+                                activeDot={{ r: 6 }}
+                                hide={!chartLinesVisibility.MCA}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Right Column: Academic guidelines & Quick actions */}
@@ -1222,6 +1463,10 @@ export default function App() {
                   <CourseManager
                     courses={courses}
                     subjects={subjects}
+                    students={students}
+                    grades={grades}
+                    onSaveGrades={handleSaveGrades}
+                    onAwardPoints={handleAwardPoints}
                     onAddCourse={handleAddCourse}
                     onAddSubject={handleAddSubject}
                   />
@@ -1381,7 +1626,7 @@ export default function App() {
           {/* Workspace 3: Interactive Viva Voce Prep */}
           {activeTab === 'viva' && (
             <div className="animate-fade-in">
-              <VivaVocePrep />
+              <VivaVocePrep students={students} onAwardPoints={handleAwardPoints} />
             </div>
           )}
         </div>
