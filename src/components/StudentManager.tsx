@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Student, Course } from '../types';
-import { Search, UserPlus, Edit2, Trash2, Check, X, ShieldAlert, Filter } from 'lucide-react';
+import { Search, UserPlus, Edit2, Trash2, Check, X, ShieldAlert, Filter, Sparkles } from 'lucide-react';
 
 interface StudentManagerProps {
   students: Student[];
@@ -38,8 +38,12 @@ export default function StudentManager({
   const [joiningDate, setJoiningDate] = useState('');
   const [status, setStatus] = useState<'Active' | 'Inactive' | 'Suspended'>('Active');
 
-  const openAddModal = () => {
-    setEditingStudent(null);
+  // Form Auto-save draft states
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  // Default values helper
+  const setDefaultAddValues = () => {
     setRollNo(`BCA2026-${String(students.length + 101)}`);
     setName('');
     setEmail('');
@@ -50,6 +54,35 @@ export default function StudentManager({
     setSemester('1st Sem');
     setJoiningDate(new Date().toISOString().split('T')[0]);
     setStatus('Active');
+    setLastSaved(null);
+    setDraftRestored(false);
+  };
+
+  const openAddModal = () => {
+    setEditingStudent(null);
+    const savedDraft = localStorage.getItem('campussphere_student_enrollment_draft');
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        setRollNo(draft.rollNo || `BCA2026-${String(students.length + 101)}`);
+        setName(draft.name || '');
+        setEmail(draft.email || '');
+        setPhone(draft.phone || '');
+        setGender(draft.gender || 'Male');
+        setDob(draft.dob || '2004-01-01');
+        setCourseId(draft.courseId || courses[0]?.id || '');
+        setSemester(draft.semester || '1st Sem');
+        setJoiningDate(draft.joiningDate || new Date().toISOString().split('T')[0]);
+        setStatus(draft.status || 'Active');
+        setLastSaved(draft.savedAt || null);
+        setDraftRestored(true);
+      } catch (err) {
+        console.error('Error loading student form draft:', err);
+        setDefaultAddValues();
+      }
+    } else {
+      setDefaultAddValues();
+    }
     setIsModalOpen(true);
   };
 
@@ -65,8 +98,40 @@ export default function StudentManager({
     setSemester(student.semester);
     setJoiningDate(student.joiningDate);
     setStatus(student.status);
+    setLastSaved(null);
+    setDraftRestored(false);
     setIsModalOpen(true);
   };
+
+  // Periodically/Debounced save the state of enrollment form to localStorage to prevent data loss on page refreshes
+  useEffect(() => {
+    if (isModalOpen && !editingStudent) {
+      const timer = setTimeout(() => {
+        // Only save if the user has actually typed something to avoid saving blank defaults
+        const isDefault = name === '' && email === '' && phone === '';
+        if (!isDefault) {
+          const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          const draftData = {
+            rollNo,
+            name,
+            email,
+            phone,
+            gender,
+            dob,
+            courseId,
+            semester,
+            joiningDate,
+            status,
+            savedAt: timestamp
+          };
+          localStorage.setItem('campussphere_student_enrollment_draft', JSON.stringify(draftData));
+          setLastSaved(timestamp);
+          setDraftRestored(true);
+        }
+      }, 800); // 800ms debounce interval
+      return () => clearTimeout(timer);
+    }
+  }, [rollNo, name, email, phone, gender, dob, courseId, semester, joiningDate, status, isModalOpen, editingStudent]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +167,10 @@ export default function StudentManager({
         joiningDate,
         status,
       });
+      // Clear draft on successful submit
+      localStorage.removeItem('campussphere_student_enrollment_draft');
+      setDraftRestored(false);
+      setLastSaved(null);
     }
     setIsModalOpen(false);
   };
@@ -323,6 +392,33 @@ export default function StudentManager({
                 <X className="h-5 w-5" />
               </button>
             </div>
+
+            {/* Form Auto-save Draft Status Bar */}
+            {draftRestored && !editingStudent && (
+              <div className="bg-blue-50/90 border-b border-blue-100 py-2.5 px-6 flex items-center justify-between text-xs font-semibold text-blue-700 animate-fade-in select-none">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                  </span>
+                  <span>
+                    {lastSaved ? `Draft progress loaded (auto-saved at ${lastSaved})` : 'Draft progress active & auto-saved'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Discard current enrollment draft and reset the form fields?')) {
+                      localStorage.removeItem('campussphere_student_enrollment_draft');
+                      setDefaultAddValues();
+                    }
+                  }}
+                  className="text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer"
+                >
+                  Discard Draft
+                </button>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

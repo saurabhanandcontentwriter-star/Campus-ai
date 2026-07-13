@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Course, Subject, Student, Grade } from '../types';
 import { 
   BookOpen, 
@@ -44,17 +44,66 @@ export default function CourseManager({
 }: CourseManagerProps) {
   const [activeTab, setActiveTab] = useState<'curriculum' | 'backlogs'>('curriculum');
 
-  // Course form state
-  const [courseCode, setCourseCode] = useState('');
-  const [courseName, setCourseName] = useState('');
-  const [courseDuration, setCourseDuration] = useState('3 Years');
-  const [semesterCount, setSemesterCount] = useState(6);
+  // Course form state (with localStorage load)
+  const [courseCode, setCourseCode] = useState(() => {
+    return localStorage.getItem('campussphere_course_code_draft') || '';
+  });
+  const [courseName, setCourseName] = useState(() => {
+    return localStorage.getItem('campussphere_course_name_draft') || '';
+  });
+  const [courseDuration, setCourseDuration] = useState(() => {
+    return localStorage.getItem('campussphere_course_duration_draft') || '3 Years';
+  });
+  const [semesterCount, setSemesterCount] = useState(() => {
+    const val = localStorage.getItem('campussphere_course_semesters_draft');
+    return val ? parseInt(val, 10) : 6;
+  });
 
-  // Subject form state
-  const [subjectCode, setSubjectCode] = useState('');
-  const [subjectName, setSubjectName] = useState('');
-  const [targetCourseId, setTargetCourseId] = useState(courses[0]?.id || '');
-  const [targetSemester, setTargetSemester] = useState('1st Sem');
+  // Subject form state (with localStorage load)
+  const [subjectCode, setSubjectCode] = useState(() => {
+    return localStorage.getItem('campussphere_subject_code_draft') || '';
+  });
+  const [subjectName, setSubjectName] = useState(() => {
+    return localStorage.getItem('campussphere_subject_name_draft') || '';
+  });
+  const [targetCourseId, setTargetCourseId] = useState(() => {
+    return localStorage.getItem('campussphere_target_course_id_draft') || courses[0]?.id || '';
+  });
+  const [targetSemester, setTargetSemester] = useState(() => {
+    return localStorage.getItem('campussphere_target_semester_draft') || '1st Sem';
+  });
+
+  // Form Auto-save draft timestamp states
+  const [courseLastSaved, setCourseLastSaved] = useState<string | null>(null);
+  const [subjectLastSaved, setSubjectLastSaved] = useState<string | null>(null);
+
+  // Periodically/Debounced save Course form state to localStorage
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (courseCode || courseName) {
+        localStorage.setItem('campussphere_course_code_draft', courseCode);
+        localStorage.setItem('campussphere_course_name_draft', courseName);
+        localStorage.setItem('campussphere_course_duration_draft', courseDuration);
+        localStorage.setItem('campussphere_course_semesters_draft', semesterCount.toString());
+        setCourseLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [courseCode, courseName, courseDuration, semesterCount]);
+
+  // Periodically/Debounced save Subject form state to localStorage
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (subjectCode || subjectName) {
+        localStorage.setItem('campussphere_subject_code_draft', subjectCode);
+        localStorage.setItem('campussphere_subject_name_draft', subjectName);
+        localStorage.setItem('campussphere_target_course_id_draft', targetCourseId);
+        localStorage.setItem('campussphere_target_semester_draft', targetSemester);
+        setSubjectLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [subjectCode, subjectName, targetCourseId, targetSemester]);
 
   // Backlog state & form
   const studentList = students || [];
@@ -98,6 +147,11 @@ export default function CourseManager({
     });
     setCourseCode('');
     setCourseName('');
+    setCourseLastSaved(null);
+    localStorage.removeItem('campussphere_course_code_draft');
+    localStorage.removeItem('campussphere_course_name_draft');
+    localStorage.removeItem('campussphere_course_duration_draft');
+    localStorage.removeItem('campussphere_course_semesters_draft');
     alert('Academic course registered successfully!');
   };
 
@@ -116,6 +170,11 @@ export default function CourseManager({
     });
     setSubjectCode('');
     setSubjectName('');
+    setSubjectLastSaved(null);
+    localStorage.removeItem('campussphere_subject_code_draft');
+    localStorage.removeItem('campussphere_subject_name_draft');
+    localStorage.removeItem('campussphere_target_course_id_draft');
+    localStorage.removeItem('campussphere_target_semester_draft');
     alert('Academic subject mapped successfully!');
   };
 
@@ -271,6 +330,33 @@ export default function CourseManager({
                 Course Registrar Portal
               </h3>
 
+              {courseLastSaved && (
+                <div className="mb-4 bg-blue-50/70 border border-blue-100 rounded-lg p-2 flex items-center justify-between text-[11px] font-semibold text-blue-700 animate-fade-in select-none">
+                  <div className="flex items-center gap-1.5">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-500"></span>
+                    </span>
+                    <span>Draft auto-saved at <strong>{courseLastSaved}</strong></span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCourseCode('');
+                      setCourseName('');
+                      setCourseLastSaved(null);
+                      localStorage.removeItem('campussphere_course_code_draft');
+                      localStorage.removeItem('campussphere_course_name_draft');
+                      localStorage.removeItem('campussphere_course_duration_draft');
+                      localStorage.removeItem('campussphere_course_semesters_draft');
+                    }}
+                    className="text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer text-[10px]"
+                  >
+                    Clear Draft
+                  </button>
+                </div>
+              )}
+
               <form onSubmit={handleAddCourseSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -354,6 +440,33 @@ export default function CourseManager({
                 <BookOpen className="h-5 w-5 text-blue-600" />
                 Curriculum Subject Mapper
               </h3>
+
+              {subjectLastSaved && (
+                <div className="mb-4 bg-blue-50/70 border border-blue-100 rounded-lg p-2 flex items-center justify-between text-[11px] font-semibold text-blue-700 animate-fade-in select-none">
+                  <div className="flex items-center gap-1.5">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-500"></span>
+                    </span>
+                    <span>Draft auto-saved at <strong>{subjectLastSaved}</strong></span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubjectCode('');
+                      setSubjectName('');
+                      setSubjectLastSaved(null);
+                      localStorage.removeItem('campussphere_subject_code_draft');
+                      localStorage.removeItem('campussphere_subject_name_draft');
+                      localStorage.removeItem('campussphere_target_course_id_draft');
+                      localStorage.removeItem('campussphere_target_semester_draft');
+                    }}
+                    className="text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer text-[10px]"
+                  >
+                    Clear Draft
+                  </button>
+                </div>
+              )}
 
               <form onSubmit={handleAddSubjectSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
