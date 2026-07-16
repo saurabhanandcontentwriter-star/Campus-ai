@@ -18,7 +18,8 @@ import {
   FileSpreadsheet,
   X,
   Filter,
-  Check
+  Check,
+  ShieldAlert
 } from 'lucide-react';
 
 interface CourseManagerProps {
@@ -30,6 +31,7 @@ interface CourseManagerProps {
   onAwardPoints?: (points: number, reason: string) => void;
   onAddCourse: (course: Omit<Course, 'id'>) => void;
   onAddSubject: (subject: Omit<Subject, 'id'>) => void;
+  currentUserRole?: string;
 }
 
 export default function CourseManager({
@@ -41,6 +43,7 @@ export default function CourseManager({
   onAwardPoints,
   onAddCourse,
   onAddSubject,
+  currentUserRole,
 }: CourseManagerProps) {
   const [activeTab, setActiveTab] = useState<'curriculum' | 'backlogs'>('curriculum');
 
@@ -357,55 +360,64 @@ export default function CourseManager({
                 </div>
               )}
 
-              <form onSubmit={handleAddCourseSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
+              {currentUserRole !== 'Student' ? (
+                <form onSubmit={handleAddCourseSubmit} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Course Code *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. BCA"
+                        value={courseCode}
+                        onChange={(e) => setCourseCode(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg py-1.5 px-3 text-xs focus:outline-blue-500 font-mono font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Course Duration</label>
+                      <select
+                        value={courseDuration}
+                        onChange={(e) => setCourseDuration(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg py-1.5 px-3 text-xs focus:outline-blue-500 font-semibold"
+                      >
+                        <option value="1 Year">1 Year (Diploma)</option>
+                        <option value="2 Years">2 Years (PostGrad)</option>
+                        <option value="3 Years">3 Years (UnderGrad)</option>
+                        <option value="4 Years">4 Years (B.Tech)</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Course Code *</label>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Course Name *</label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. BCA"
-                      value={courseCode}
-                      onChange={(e) => setCourseCode(e.target.value)}
-                      className="w-full border border-slate-200 rounded-lg py-1.5 px-3 text-xs focus:outline-blue-500 font-mono font-semibold"
+                      placeholder="e.g. Bachelor of Computer Applications"
+                      value={courseName}
+                      onChange={(e) => setCourseName(e.target.value)}
+                      className="w-full border border-slate-200 rounded-lg py-1.5 px-3 text-xs focus:outline-blue-500 font-medium"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Course Duration</label>
-                    <select
-                      value={courseDuration}
-                      onChange={(e) => setCourseDuration(e.target.value)}
-                      className="w-full border border-slate-200 rounded-lg py-1.5 px-3 text-xs focus:outline-blue-500 font-semibold"
-                    >
-                      <option value="1 Year">1 Year (Diploma)</option>
-                      <option value="2 Years">2 Years (PostGrad)</option>
-                      <option value="3 Years">3 Years (UnderGrad)</option>
-                      <option value="4 Years">4 Years (B.Tech)</option>
-                    </select>
-                  </div>
+                  <button
+                    type="submit"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-4 rounded-lg flex items-center gap-1.5 transition ml-auto cursor-pointer"
+                  >
+                    <FolderPlus className="h-4 w-4" />
+                    Register Course
+                  </button>
+                </form>
+              ) : (
+                <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-5 text-center space-y-2 select-none">
+                  <ShieldAlert className="h-6 w-6 text-slate-400 mx-auto animate-pulse" />
+                  <p className="text-[11px] text-slate-500 font-semibold leading-relaxed">
+                    Course creations and curriculum structure edits are restricted to Academic Administrators.
+                  </p>
                 </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Course Name *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Bachelor of Computer Applications"
-                    value={courseName}
-                    onChange={(e) => setCourseName(e.target.value)}
-                    className="w-full border border-slate-200 rounded-lg py-1.5 px-3 text-xs focus:outline-blue-500 font-medium"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-4 rounded-lg flex items-center gap-1.5 transition ml-auto cursor-pointer"
-                >
-                  <FolderPlus className="h-4 w-4" />
-                  Register Course
-                </button>
-              </form>
+              )}
             </div>
 
             {/* Existing Courses List */}
@@ -468,75 +480,84 @@ export default function CourseManager({
                 </div>
               )}
 
-              <form onSubmit={handleAddSubjectSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Subject Code *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. BCA-501"
-                      value={subjectCode}
-                      onChange={(e) => setSubjectCode(e.target.value)}
-                      className="w-full border border-slate-200 rounded-lg py-1.5 px-3 text-xs focus:outline-blue-500 font-mono font-semibold"
-                    />
+              {currentUserRole !== 'Student' ? (
+                <form onSubmit={handleAddSubjectSubmit} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Subject Code *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. BCA-501"
+                        value={subjectCode}
+                        onChange={(e) => setSubjectCode(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg py-1.5 px-3 text-xs focus:outline-blue-500 font-mono font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Subject Name *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Java Programming"
+                        value={subjectName}
+                        onChange={(e) => setSubjectName(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg py-1.5 px-3 text-xs focus:outline-blue-500 font-semibold"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Subject Name *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Java Programming"
-                      value={subjectName}
-                      onChange={(e) => setSubjectName(e.target.value)}
-                      className="w-full border border-slate-200 rounded-lg py-1.5 px-3 text-xs focus:outline-blue-500 font-semibold"
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Course Allocation *</label>
+                      <select
+                        value={targetCourseId}
+                        onChange={(e) => setTargetCourseId(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg py-1.5 px-3 text-xs focus:outline-blue-500 font-semibold"
+                      >
+                        <option value="">Choose Course</option>
+                        {courses.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.code}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Semester Mapped *</label>
+                      <select
+                        value={targetSemester}
+                        onChange={(e) => setTargetSemester(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg py-1.5 px-3 text-xs focus:outline-blue-500 font-semibold"
+                      >
+                        <option value="1st Sem">1st Semester</option>
+                        <option value="2nd Sem">2nd Semester</option>
+                        <option value="3rd Sem">3rd Semester</option>
+                        <option value="4th Sem">4th Semester</option>
+                        <option value="5th Sem">5th Semester</option>
+                        <option value="6th Sem">6th Semester</option>
+                      </select>
+                    </div>
                   </div>
+
+                  <button
+                    type="submit"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-4 rounded-lg flex items-center gap-1.5 transition ml-auto cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Map Syllabus Subject
+                  </button>
+                </form>
+              ) : (
+                <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-5 text-center space-y-2 select-none">
+                  <ShieldAlert className="h-6 w-6 text-slate-400 mx-auto animate-pulse" />
+                  <p className="text-[11px] text-slate-500 font-semibold leading-relaxed">
+                    Syllabus mappings and credit allocation edits are restricted to Academic Faculty.
+                  </p>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Course Allocation *</label>
-                    <select
-                      value={targetCourseId}
-                      onChange={(e) => setTargetCourseId(e.target.value)}
-                      className="w-full border border-slate-200 rounded-lg py-1.5 px-3 text-xs focus:outline-blue-500 font-semibold"
-                    >
-                      <option value="">Choose Course</option>
-                      {courses.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.code}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Semester Mapped *</label>
-                    <select
-                      value={targetSemester}
-                      onChange={(e) => setTargetSemester(e.target.value)}
-                      className="w-full border border-slate-200 rounded-lg py-1.5 px-3 text-xs focus:outline-blue-500 font-semibold"
-                    >
-                      <option value="1st Sem">1st Semester</option>
-                      <option value="2nd Sem">2nd Semester</option>
-                      <option value="3rd Sem">3rd Semester</option>
-                      <option value="4th Sem">4th Semester</option>
-                      <option value="5th Sem">5th Semester</option>
-                      <option value="6th Sem">6th Semester</option>
-                    </select>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-4 rounded-lg flex items-center gap-1.5 transition ml-auto cursor-pointer"
-                >
-                  <Plus className="h-4 w-4" />
-                  Map Syllabus Subject
-                </button>
-              </form>
+              )}
             </div>
 
             {/* Mapped Subjects grouped display */}
@@ -606,21 +627,29 @@ export default function CourseManager({
               <div className="flex-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase">Ledger Administrative Options</span>
                 <div className="flex gap-2 mt-2">
-                  <button
-                    onClick={() => setShowAddBacklogForm(!showAddBacklogForm)}
-                    className="px-3.5 py-1.5 text-xs font-bold bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Log Backlog Entry</span>
-                  </button>
-                  <button
-                    onClick={handleBulkPurgeBacklogs}
-                    className="px-3.5 py-1.5 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition flex items-center gap-1.5 cursor-pointer"
-                    title="Bulk clear all failing records and upgrade to passed (Grade C)"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Mass Clear & Pass All</span>
-                  </button>
+                  {currentUserRole !== 'Student' ? (
+                    <>
+                      <button
+                        onClick={() => setShowAddBacklogForm(!showAddBacklogForm)}
+                        className="px-3.5 py-1.5 text-xs font-bold bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Log Backlog Entry</span>
+                      </button>
+                      <button
+                        onClick={handleBulkPurgeBacklogs}
+                        className="px-3.5 py-1.5 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition flex items-center gap-1.5 cursor-pointer"
+                        title="Bulk clear all failing records and upgrade to passed (Grade C)"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Mass Clear & Pass All</span>
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-[11px] text-slate-500 font-semibold italic">
+                      View Mode: Log entries and mass clearances are restricted to Faculty/Admin.
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -843,7 +872,9 @@ export default function CourseManager({
                       <th className="p-4">Backlog Syllabus Subject</th>
                       <th className="p-4">Exam Details</th>
                       <th className="p-4">Marks / Status</th>
-                      <th className="p-4 text-right">Clearance Actions</th>
+                      {currentUserRole !== 'Student' && (
+                        <th className="p-4 text-right">Clearance Actions</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -891,17 +922,19 @@ export default function CourseManager({
                             <p className="text-[10px] text-slate-400 mt-0.5 italic">{b.remarks || 'No notes'}</p>
                           </td>
 
-                          <td className="p-4 text-right">
-                            <button
-                              onClick={() => {
-                                setClearingBacklog(b);
-                                setClearedMarks(75);
-                              }}
-                              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10px] transition cursor-pointer shadow-2xs hover:shadow-xs uppercase"
-                            >
-                              Clear Backlog
-                            </button>
-                          </td>
+                          {currentUserRole !== 'Student' && (
+                            <td className="p-4 text-right">
+                              <button
+                                onClick={() => {
+                                  setClearingBacklog(b);
+                                  setClearedMarks(75);
+                                }}
+                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10px] transition cursor-pointer shadow-2xs hover:shadow-xs uppercase"
+                              >
+                                Clear Backlog
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}

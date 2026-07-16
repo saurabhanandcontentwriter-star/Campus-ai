@@ -9,7 +9,7 @@ export interface Student {
   courseId: string;
   semester: string;
   joiningDate: string;
-  status: 'Active' | 'Inactive' | 'Suspended';
+  status: 'Active' | 'Inactive' | 'Suspended' | 'Graduated';
 }
 
 export interface Course {

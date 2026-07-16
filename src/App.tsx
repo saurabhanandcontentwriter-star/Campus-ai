@@ -65,7 +65,8 @@ import {
   AwardIcon,
   MessageSquare,
   HelpCircleIcon,
-  User
+  User,
+  LogOut
 } from 'lucide-react';
 
 // Seeding Initial Data
@@ -181,6 +182,74 @@ const ENROLLMENT_TRENDS_DATA = [
 ];
 
 export default function App() {
+  // User Authentication Database
+  const [usersDb, setUsersDb] = useState<any[]>(() => {
+    const saved = localStorage.getItem('campussphere_users');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (err) {
+        console.error('Error parsing users database:', err);
+      }
+    }
+    const defaults = [
+      { id: 'usr-admin', userId: '7667926418', name: 'Saurabh Anand', role: 'Admin', password: '123456' },
+      { id: 'usr-faculty', userId: 'faculty1', name: 'Prof. Rajesh Kumar', role: 'Faculty', password: '123456' },
+      { id: 'usr-student', userId: 'student1', name: 'Amit Sharma', role: 'Student', password: '123456' }
+    ];
+    localStorage.setItem('campussphere_users', JSON.stringify(defaults));
+    return defaults;
+  });
+
+  const [currentUser, setCurrentUser] = useState<any>(() => {
+    const saved = localStorage.getItem('campussphere_current_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const handleRegisterUser = (userId: string, name: string, role: 'Admin' | 'Faculty' | 'Student', pass: string) => {
+    if (usersDb.some(u => u.userId === userId)) {
+      alert('User ID already exists! Please choose a unique User ID.');
+      return false;
+    }
+    const newUser = {
+      id: `usr-${Date.now()}`,
+      userId,
+      name,
+      role,
+      password: pass
+    };
+    const updated = [...usersDb, newUser];
+    setUsersDb(updated);
+    localStorage.setItem('campussphere_users', JSON.stringify(updated));
+    alert(`Account created successfully as ${role}! You can now login.`);
+    return true;
+  };
+
+  const handleLoginUser = (userId: string, pass: string) => {
+    const found = usersDb.find(u => u.userId === userId && u.password === pass);
+    if (found) {
+      setCurrentUser(found);
+      localStorage.setItem('campussphere_current_user', JSON.stringify(found));
+      handleAwardPoints(10, `Logged in successfully as ${found.role}`);
+      return true;
+    } else {
+      alert('Invalid User ID or Password! Default admin is ID: 7667926418 and Pass: 123456.');
+      return false;
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('campussphere_current_user');
+  };
+
+  // Auth Screen Form states
+  const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
+  const [authUserId, setAuthUserId] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authRole, setAuthRole] = useState<'Admin' | 'Faculty' | 'Student'>('Admin');
+
   // Navigation
   const [activeTab, setActiveTab] = useState<'portal' | 'thesis' | 'viva'>('portal');
   // Portal Sub-tabs
@@ -416,6 +485,208 @@ export default function App() {
     const present = logs.filter((l) => l.status === 'Present').length;
     return `${Math.round((present / logs.length) * 100)}%`;
   };
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen w-screen bg-slate-900 flex items-center justify-center p-4 sm:p-6 overflow-y-auto font-sans text-slate-200 selection:bg-blue-600/30">
+        <div className="max-w-md w-full bg-slate-950 border border-slate-800/80 rounded-2xl shadow-2xl p-6 sm:p-8 space-y-6 relative overflow-hidden my-4">
+          {/* Subtle background glow */}
+          <div className="absolute -top-40 -left-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-40 -right-40 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Logo & Brand Header */}
+          <div className="text-center space-y-2 relative z-10 select-none">
+            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center font-black text-white text-lg mx-auto shadow-lg shadow-blue-900/30">
+              CS
+            </div>
+            <h2 className="text-xl font-black text-white tracking-tight">CampusSphere Portal</h2>
+            <p className="text-xs text-slate-400 font-semibold leading-relaxed">
+              Unified Academic Gateway for Administrators, Faculty Advisors, and Class Students.
+            </p>
+          </div>
+
+          {/* Tab buttons */}
+          <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800/60 relative z-10">
+            <button
+              type="button"
+              onClick={() => {
+                setAuthTab('login');
+                setAuthUserId('');
+                setAuthPassword('');
+                setAuthName('');
+              }}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                authTab === 'login' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Sign In Gate
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthTab('register');
+                setAuthUserId('');
+                setAuthPassword('');
+                setAuthName('');
+              }}
+              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                authTab === 'register' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Create Account
+            </button>
+          </div>
+
+          {/* Form */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (authTab === 'login') {
+                handleLoginUser(authUserId, authPassword);
+              } else {
+                if (!authUserId.trim() || !authPassword.trim() || !authName.trim()) {
+                  alert('All starred fields are required!');
+                  return;
+                }
+                const success = handleRegisterUser(authUserId, authName, authRole, authPassword);
+                if (success) {
+                  setAuthTab('login');
+                  setAuthUserId(authUserId);
+                  setAuthPassword(authPassword);
+                }
+              }
+            }}
+            className="space-y-4 relative z-10 text-left"
+          >
+            {authTab === 'register' && (
+              <div className="space-y-1">
+                <label className="block text-[10px] font-mono font-bold uppercase text-slate-400 tracking-wider">Full Profile Name *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-slate-500 font-mono text-xs">✍</span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Saurabh Anand"
+                    value={authName}
+                    onChange={(e) => setAuthName(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800/80 focus:border-blue-500 rounded-lg py-1.5 pl-9 pr-3 text-xs focus:outline-none text-slate-100 font-bold font-sans"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <label className="block text-[10px] font-mono font-bold uppercase text-slate-400 tracking-wider">User Account ID *</label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-slate-500 font-mono text-xs">ID</span>
+                <input
+                  type="text"
+                  required
+                  placeholder={authTab === 'login' ? "e.g. 7667926418" : "e.g. Unique User ID"}
+                  value={authUserId}
+                  onChange={(e) => setAuthUserId(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800/80 focus:border-blue-500 rounded-lg py-1.5 pl-9 pr-3 text-xs focus:outline-none text-slate-100 font-bold font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-[10px] font-mono font-bold uppercase text-slate-400 tracking-wider">Account Role Selection *</label>
+              <select
+                value={authRole}
+                onChange={(e) => setAuthRole(e.target.value as any)}
+                className="w-full bg-slate-900 border border-slate-800/80 focus:border-blue-500 rounded-lg py-1.5 px-3 text-xs focus:outline-none text-slate-100 font-bold cursor-pointer"
+              >
+                <option value="Admin">Administrator System</option>
+                <option value="Faculty">Faculty Advisor System</option>
+                <option value="Student">Class Student System</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-[10px] font-mono font-bold uppercase text-slate-400 tracking-wider">Account Password *</label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-slate-500 font-mono text-xs">🔑</span>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800/80 focus:border-blue-500 rounded-lg py-1.5 pl-9 pr-3 text-xs focus:outline-none text-slate-100 font-bold font-mono"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-4 rounded-lg flex items-center justify-center gap-1.5 transition shadow-lg shadow-blue-950/40 cursor-pointer active:scale-[0.98]"
+            >
+              <span>{authTab === 'login' ? 'Authenticate Entry' : 'Register Academic Account'}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </form>
+
+          {/* Quick-Demo Accounts autofill clickable shortcuts */}
+          <div className="space-y-3 pt-4 border-t border-slate-800/60 relative z-10 select-none text-left">
+            <p className="text-[10px] font-mono font-extrabold uppercase text-slate-500 tracking-wider">💡 Click to Autofill Demo Credentials:</p>
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthUserId('7667926418');
+                  setAuthPassword('123456');
+                  setAuthRole('Admin');
+                  setAuthTab('login');
+                }}
+                className="bg-blue-950/20 border border-blue-900/40 rounded-xl p-2.5 flex items-center justify-between cursor-pointer hover:bg-blue-950/40 hover:border-blue-800/60 transition active:scale-[0.99] w-full text-left"
+              >
+                <div>
+                  <p className="text-[10px] font-extrabold text-blue-400">Default Super Admin</p>
+                  <p className="text-[9px] text-slate-500 font-mono mt-0.5">ID: 7667926418 • Pass: 123456</p>
+                </div>
+                <span className="text-[10px] font-bold text-blue-500 bg-blue-950/80 border border-blue-900/50 rounded-md py-0.5 px-2">Autofill</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthUserId('faculty1');
+                  setAuthPassword('123456');
+                  setAuthRole('Faculty');
+                  setAuthTab('login');
+                }}
+                className="bg-emerald-950/20 border border-emerald-900/40 rounded-xl p-2.5 flex items-center justify-between cursor-pointer hover:bg-emerald-950/40 hover:border-emerald-800/60 transition active:scale-[0.99] w-full text-left"
+              >
+                <div>
+                  <p className="text-[10px] font-extrabold text-emerald-400">Faculty Advisor Account</p>
+                  <p className="text-[9px] text-slate-500 font-mono mt-0.5">ID: faculty1 • Pass: 123456</p>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-500 bg-emerald-950/80 border border-emerald-900/50 rounded-md py-0.5 px-2">Autofill</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthUserId('student1');
+                  setAuthPassword('123456');
+                  setAuthRole('Student');
+                  setAuthTab('login');
+                }}
+                className="bg-purple-950/20 border border-purple-900/40 rounded-xl p-2.5 flex items-center justify-between cursor-pointer hover:bg-purple-950/40 hover:border-purple-800/60 transition active:scale-[0.99] w-full text-left"
+              >
+                <div>
+                  <p className="text-[10px] font-extrabold text-purple-400">Class Student Account</p>
+                  <p className="text-[9px] text-slate-500 font-mono mt-0.5">ID: student1 • Pass: 123456</p>
+                </div>
+                <span className="text-[10px] font-bold text-purple-500 bg-purple-950/80 border border-purple-900/50 rounded-md py-0.5 px-2">Autofill</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-screen bg-slate-50 text-slate-800 font-sans flex flex-col lg:flex-row overflow-hidden">
@@ -764,15 +1035,24 @@ export default function App() {
         </nav>
 
         {/* User Card */}
-        <div className="p-4 bg-slate-950 border-t border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center border border-slate-600 font-bold text-white text-xs select-none">
-              SA
+        <div className="p-4 bg-slate-950 border-t border-slate-800/80">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-blue-600/20 flex items-center justify-center border border-blue-500/30 font-bold text-blue-400 text-xs select-none shrink-0">
+                {currentUser ? currentUser.name.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase() : 'US'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-extrabold text-white truncate">{currentUser ? currentUser.name : 'Saurabh Anand'}</p>
+                <p className="text-[9px] text-slate-400 font-mono tracking-wider font-semibold uppercase">{currentUser ? currentUser.role : 'Student Admin'}</p>
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-white truncate">Saurabh Anand</p>
-              <p className="text-[9px] text-slate-500 font-medium">BCA Student Admin</p>
-            </div>
+            <button
+              onClick={handleLogout}
+              className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800/60 rounded-lg transition cursor-pointer shrink-0"
+              title="Logout / Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </aside>
@@ -1027,6 +1307,28 @@ export default function App() {
             <HelpCircle className="w-4 h-4" />
             Interactive Viva Prep
           </button>
+
+          <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between px-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-blue-600/20 flex items-center justify-center font-bold text-blue-400 text-xs">
+                {currentUser ? currentUser.name.split(' ').map((n: any) => n[0]).join('').substring(0, 2).toUpperCase() : 'SA'}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-white truncate">{currentUser ? currentUser.name : 'Saurabh Anand'}</p>
+                <p className="text-[9px] text-slate-500 font-mono tracking-wider font-semibold uppercase">{currentUser ? currentUser.role : 'Student Admin'}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                handleLogout();
+                setIsMobileMenuOpen(false);
+              }}
+              className="bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold text-[10px] px-3 py-1.5 rounded-lg flex items-center gap-1 transition cursor-pointer"
+            >
+              <LogOut className="w-3 h-3" />
+              Sign Out
+            </button>
+          </div>
         </div>
       )}
 
@@ -1427,6 +1729,7 @@ export default function App() {
                     onAddStudent={handleAddStudent}
                     onEditStudent={handleEditStudent}
                     onDeleteStudent={handleDeleteStudent}
+                    currentUserRole={currentUser?.role}
                   />
                 </div>
               )}
@@ -1434,26 +1737,64 @@ export default function App() {
               {/* Attendance Sub-tab */}
               {portalSubTab === 'attendance' && (
                 <div className="animate-fade-in">
-                  <AttendanceManager
-                    students={students}
-                    courses={courses}
-                    subjects={subjects}
-                    attendance={attendance}
-                    onSaveAttendance={handleSaveAttendance}
-                  />
+                  {currentUser?.role === 'Student' ? (
+                    <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm text-center max-w-lg mx-auto my-12 space-y-4">
+                      <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+                        <ShieldAlert className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-800">Faculty/Admin Access Only</h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        The live Attendance Ledger can only be modified by faculty members and administrators. 
+                        Please visit <strong>My Student Dossier</strong> to view your personal live attendance rate.
+                      </p>
+                      <button
+                        onClick={() => setPortalSubTab('student-profile')}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition"
+                      >
+                        Go to My Student Dossier
+                      </button>
+                    </div>
+                  ) : (
+                    <AttendanceManager
+                      students={students}
+                      courses={courses}
+                      subjects={subjects}
+                      attendance={attendance}
+                      onSaveAttendance={handleSaveAttendance}
+                    />
+                  )}
                 </div>
               )}
 
               {/* Grading Sub-tab */}
               {portalSubTab === 'grades' && (
                 <div className="animate-fade-in">
-                  <GradeManager
-                    students={students}
-                    courses={courses}
-                    subjects={subjects}
-                    grades={grades}
-                    onSaveGrades={handleSaveGrades}
-                  />
+                  {currentUser?.role === 'Student' ? (
+                    <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm text-center max-w-lg mx-auto my-12 space-y-4">
+                      <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+                        <ShieldAlert className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-800">Faculty/Admin Access Only</h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        The live Grading Ledger can only be modified by faculty members and administrators. 
+                        Please visit <strong>My Student Dossier</strong> to view your personal report card.
+                      </p>
+                      <button
+                        onClick={() => setPortalSubTab('student-profile')}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-lg transition"
+                      >
+                        Go to My Student Dossier
+                      </button>
+                    </div>
+                  ) : (
+                    <GradeManager
+                      students={students}
+                      courses={courses}
+                      subjects={subjects}
+                      grades={grades}
+                      onSaveGrades={handleSaveGrades}
+                    />
+                  )}
                 </div>
               )}
 
@@ -1469,6 +1810,7 @@ export default function App() {
                     onAwardPoints={handleAwardPoints}
                     onAddCourse={handleAddCourse}
                     onAddSubject={handleAddSubject}
+                    currentUserRole={currentUser?.role}
                   />
                 </div>
               )}

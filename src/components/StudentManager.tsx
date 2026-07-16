@@ -8,6 +8,7 @@ interface StudentManagerProps {
   onAddStudent: (student: Omit<Student, 'id'>) => void;
   onEditStudent: (student: Student) => void;
   onDeleteStudent: (id: string) => void;
+  currentUserRole?: string;
 }
 
 export default function StudentManager({
@@ -16,6 +17,7 @@ export default function StudentManager({
   onAddStudent,
   onEditStudent,
   onDeleteStudent,
+  currentUserRole,
 }: StudentManagerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [courseFilter, setCourseFilter] = useState('All');
@@ -36,7 +38,7 @@ export default function StudentManager({
   const [courseId, setCourseId] = useState('');
   const [semester, setSemester] = useState('1st Sem');
   const [joiningDate, setJoiningDate] = useState('');
-  const [status, setStatus] = useState<'Active' | 'Inactive' | 'Suspended'>('Active');
+  const [status, setStatus] = useState<'Active' | 'Inactive' | 'Suspended' | 'Graduated'>('Active');
 
   // Form Auto-save draft states
   const [lastSaved, setLastSaved] = useState<string | null>(null);
@@ -205,13 +207,20 @@ export default function StudentManager({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={openAddModal}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition cursor-pointer"
-          >
-            <UserPlus className="h-4 w-4" />
-            Enroll Student
-          </button>
+          {currentUserRole === 'Student' ? (
+            <span className="bg-slate-100 border border-slate-200 text-slate-500 font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 select-none">
+              <ShieldAlert className="h-3.5 w-3.5 text-slate-400" />
+              Read-Only Directory
+            </span>
+          ) : (
+            <button
+              onClick={openAddModal}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm transition cursor-pointer"
+            >
+              <UserPlus className="h-4 w-4" />
+              Enroll Student
+            </button>
+          )}
         </div>
       </div>
 
@@ -261,6 +270,7 @@ export default function StudentManager({
           <option value="Active">Active</option>
           <option value="Inactive">Inactive</option>
           <option value="Suspended">Suspended</option>
+          <option value="Graduated">Graduated</option>
         </select>
 
         {/* Clear Filters Button */}
@@ -291,7 +301,9 @@ export default function StudentManager({
                 <th className="p-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Contact Detail</th>
                 <th className="p-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Joining Date</th>
                 <th className="p-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
-                <th className="p-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                {currentUserRole !== 'Student' && (
+                  <th className="p-4 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -332,34 +344,38 @@ export default function StudentManager({
                               ? 'bg-green-50 text-green-700 border border-green-200'
                               : student.status === 'Inactive'
                               ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : student.status === 'Graduated'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
                               : 'bg-red-50 text-red-700 border border-red-200'
                           }`}
                         >
                           {student.status}
                         </span>
                       </td>
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => openEditModal(student)}
-                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded transition cursor-pointer"
-                            title="Edit Record"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm(`Are you sure you want to delete student: ${student.name}?`)) {
-                                onDeleteStudent(student.id);
-                              }
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded transition cursor-pointer"
-                            title="Delete Record"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
+                      {currentUserRole !== 'Student' && (
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => openEditModal(student)}
+                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded transition cursor-pointer"
+                              title="Edit Record"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to delete student: ${student.name}?`)) {
+                                  onDeleteStudent(student.id);
+                                }
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-slate-100 rounded transition cursor-pointer"
+                              title="Delete Record"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -546,6 +562,7 @@ export default function StudentManager({
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
                     <option value="Suspended">Suspended</option>
+                    <option value="Graduated">Graduated</option>
                   </select>
                 </div>
               </div>
